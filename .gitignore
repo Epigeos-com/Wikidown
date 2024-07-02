@@ -1,0 +1,8 @@
+\.vs
+\.github
+\.git
+
+source/bin
+source/obj
+source/properties
+source/Wikidown.csproj.user
