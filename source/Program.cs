@@ -87,13 +87,17 @@
                     }
                     try
                     {
-                        File.WriteAllText("output/" + baseURL + "/" + prefix.Replace('/', '-') + "/" + ((string)page.title).Replace('/', '-') + ".json", pageData);
+                        var filename = "output/" + baseURL + "/" + prefix.Replace('/', '-') + "/" + ((string)page.title).Replace('/', '-') + ".json";
+                        if (File.Exists(filename)) throw new();
+                        File.WriteAllText(filename, pageData);
                     }
                     catch
                     {
                         try
                         {
-                            File.WriteAllText("output/" + baseURL + "/" + prefix.Replace('/', '-') + "/" + page.pageid + ".json", pageData);
+                            var filename = "output/" + baseURL + "/" + prefix.Replace('/', '-') + "/" + page.pageid + ".json";
+                            if (File.Exists(filename)) throw new("File " + page.pageid + " already exists.");
+                            File.WriteAllText(filename, pageData);
                         }
                         catch (Exception e)
                         {
