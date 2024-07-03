@@ -27,8 +27,7 @@
             {
                 if (i != 0)
                 {
-                    Console.Write("\r" + parameterPairs[i - 1] + " - completed    ");
-                    Console.CursorLeft -= 4;
+                    Console.Write("\r" + parameterPairs[i - 1] + " - completed    \n");
                 }
 
                 string baseURL;
@@ -48,73 +47,78 @@
                 Directory.CreateDirectory("output/" + baseURL + "/" + prefix.Replace('/', '-'));
                 Console.Write(parameterPairs[i] + " - listing pages");
 
-                var pages = await ReadWiki(baseURL, "action=query&format=json&list=allpages&aplimit=max&apprefix=" + prefix);
-                dynamic pagesJSON;
-                try
+                await DownloadPages();
+                async Task DownloadPages(string? apcontinue = null)
                 {
-                    var nullablePagesJSON = JsonConvert.DeserializeObject(pages);
-                    if (nullablePagesJSON == null || nullablePagesJSON is string) throw new();
-                    pagesJSON = nullablePagesJSON;
-                    Console.Write("\r" + parameterPairs[i] + " - downloading  ");
-                    Console.CursorLeft -= 2;
-                }
-                catch
-                {
-                    Console.BackgroundColor = ConsoleColor.Red;
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.WriteLine("Fatal error: Attempt to read wikipedia API returned invalid value: " + pages);
-                    Console.ResetColor();
-                    return;
-                }
-
-
-                foreach (dynamic page in pagesJSON.query.allpages)
-                {
-                    var pageData = (await ReadWiki(baseURL, "action=parse&format=json&pageid=" + page.pageid + "&" + pageContentArguments)).Replace("\\n", "\n");
-                    if (pageContentArguments.Contains("parsewarnings"))
-                    {
-                        if (pageData.Contains("\"parsewarnings\":[],"))
-                        {
-                            pageData = pageData.Replace("\"parsewarnings\":[],", "");
-                        }
-                        else
-                        {
-                            Console.BackgroundColor = ConsoleColor.Red;
-                            Console.ForegroundColor = ConsoleColor.White;
-                            Console.WriteLine($"Error: page {page.title}({page.pageid}) seems to contain parse warnings. See the it's file for their content.");
-                            Console.ResetColor();
-                        }
-                    }
+                    var listArguments = "action=query&format=json&list=allpages&aplimit=max&apfilterredir=nonredirects&apprefix=" + prefix;
+                    if (apcontinue != null) listArguments += "&apcontinue=" + apcontinue;
+                    var pages = await ReadWiki(baseURL, listArguments);
+                    dynamic pagesJSON;
                     try
                     {
-                        var filename = "output/" + baseURL + "/" + prefix.Replace('/', '-') + "/" + ((string)page.title).Replace('/', '-') + ".json";
-                        if (File.Exists(filename)) throw new();
-                        File.WriteAllText(filename, pageData);
+                        dynamic? nullablePagesJSON = JsonConvert.DeserializeObject(pages);
+                        if (nullablePagesJSON == null || nullablePagesJSON is string) throw new();
+                        pagesJSON = nullablePagesJSON;
+                        Console.Write("\r" + parameterPairs[i] + " - downloading  ");
+                        Console.CursorLeft -= 2;
                     }
                     catch
                     {
+                        Console.BackgroundColor = ConsoleColor.Red;
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.WriteLine("Fatal error: Attempt to read wikipedia API returned invalid value: " + pages);
+                        Console.ResetColor();
+                        return;
+                    }
+
+                    foreach (dynamic page in pagesJSON.query.allpages)
+                    {
+                        var pageData = (await ReadWiki(baseURL, "action=parse&format=json&pageid=" + page.pageid + "&" + pageContentArguments)).Replace("\\n", "\n");
+                        if (pageContentArguments.Contains("parsewarnings"))
+                        {
+                            if (pageData.Contains("\"parsewarnings\":[],"))
+                            {
+                                pageData = pageData.Replace("\"parsewarnings\":[],", "");
+                            }
+                            else
+                            {
+                                Console.BackgroundColor = ConsoleColor.Red;
+                                Console.ForegroundColor = ConsoleColor.White;
+                                Console.WriteLine($"Error: page {page.title}({page.pageid}) seems to contain parse warnings. See the it's file for their content.");
+                                Console.ResetColor();
+                            }
+                        }
                         try
                         {
-                            var filename = "output/" + baseURL + "/" + prefix.Replace('/', '-') + "/" + page.pageid + ".json";
-                            if (File.Exists(filename)) throw new("File " + page.pageid + " already exists.");
+                            var filename = "output/" + baseURL + "/" + prefix.Replace('/', '-') + "/" + ((string)page.title).Replace('/', '-') + ".json";
+                            if (File.Exists(filename)) throw new();
                             File.WriteAllText(filename, pageData);
                         }
-                        catch (Exception e)
+                        catch
                         {
-                            Console.BackgroundColor = ConsoleColor.Red;
-                            Console.ForegroundColor = ConsoleColor.White;
-                            Console.WriteLine("Error: Didn't download page with the id " + page.pageid + ": " + e.Message + ". Continuing download of further pages.");
-                            Console.ResetColor();
+                            try
+                            {
+                                var filename = "output/" + baseURL + "/" + prefix.Replace('/', '-') + "/" + page.pageid + ".json";
+                                if (File.Exists(filename)) throw new("File already exists.");
+                                File.WriteAllText(filename, pageData);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.BackgroundColor = ConsoleColor.Red;
+                                Console.ForegroundColor = ConsoleColor.White;
+                                Console.WriteLine("Error: Didn't download page with the id " + page.pageid + ": " + e.Message + ". Continuing download of further pages.");
+                                Console.ResetColor();
+                            }
                         }
                     }
+
+                    if (pagesJSON["continue"] != null) await DownloadPages(pagesJSON["continue"].apcontinue);
                 }
             }
 
             Console.Write("\r" + parameterPairs[^1] + " - completed    ");
             Console.CursorLeft -= 4;
             Console.WriteLine("\nDownloaded all requested pages.");
-            Console.ReadLine();
-            Main();
         }
 
         static async Task<string> ReadWiki(string baseURL, string apiOptions)
