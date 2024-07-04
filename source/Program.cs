@@ -12,9 +12,9 @@
         {
             Console.Title = "Wikidown";
 
-            Console.WriteLine("Enter arguments for page content. The prop parsewarnings will not be saved if empty, but will warn you if not empty, so it's recommended. This app is not meant to work with deprecated options. (redirects=true&utf8=true&prop=wikitext|categories|revid|properties|parsewarnings)");
+            Console.WriteLine("Enter arguments for page content. The prop parsewarnings will not be saved if empty, but will warn you if not empty, so it's recommended. This app is not meant to work with deprecated options. (utf8=true&prop=wikitext|categories|revid|properties|parsewarnings)");
             string? pageContentArguments = Console.ReadLine();
-            if (pageContentArguments == null || pageContentArguments == "") pageContentArguments = "format=json&redirects=true&utf8=true&prop=wikitext|categories|revid|properties|parsewarnings";
+            if (pageContentArguments == null || pageContentArguments == "") pageContentArguments = "utf8=true&prop=wikitext|categories|revid|properties|parsewarnings";
 
             Console.WriteLine("Enter the base wiki URLs and prefixes. Ex: en.wikipedia.org:Prefix,incubator.wikimedia.org:Wp/ess/.");
             string? parameters = Console.ReadLine();
@@ -54,22 +54,17 @@
                     if (apcontinue != null) listArguments += "&apcontinue=" + apcontinue;
                     var pages = await ReadWiki(baseURL, listArguments);
                     dynamic pagesJSON;
-                    try
-                    {
-                        dynamic? nullablePagesJSON = JsonConvert.DeserializeObject(pages);
-                        if (nullablePagesJSON == null || nullablePagesJSON is string) throw new();
-                        pagesJSON = nullablePagesJSON;
-                        Console.Write("\r" + parameterPairs[i] + " - downloading  ");
-                        Console.CursorLeft -= 2;
-                    }
-                    catch
+                    dynamic? nullablePagesJSON = JsonConvert.DeserializeObject(pages);
+                    if (nullablePagesJSON == null || nullablePagesJSON is string)
                     {
                         Console.BackgroundColor = ConsoleColor.Red;
-                        Console.ForegroundColor = ConsoleColor.White;
-                        Console.WriteLine("Fatal error: Attempt to read wikipedia API returned invalid value: " + pages);
+                        Console.Write("\nFatal error: Attempt to read wikipedia API returned invalid value: " + pages + "\n");
                         Console.ResetColor();
                         return;
                     }
+                    pagesJSON = nullablePagesJSON;
+                    Console.Write("\r" + parameterPairs[i] + " - downloading  ");
+                    Console.CursorLeft -= 2;
 
                     foreach (dynamic page in pagesJSON.query.allpages)
                     {
@@ -82,9 +77,9 @@
                             }
                             else
                             {
-                                Console.BackgroundColor = ConsoleColor.Red;
-                                Console.ForegroundColor = ConsoleColor.White;
-                                Console.WriteLine($"Error: page {page.title}({page.pageid}) seems to contain parse warnings. See the it's file for their content.");
+                                Console.BackgroundColor = ConsoleColor.Yellow;
+                                Console.ForegroundColor = ConsoleColor.Black;
+                                Console.Write($"\nWarning: page {page.title}({page.pageid}) seems to contain parse warnings. See the it's file for their content.\n");
                                 Console.ResetColor();
                             }
                         }
@@ -105,8 +100,7 @@
                             catch (Exception e)
                             {
                                 Console.BackgroundColor = ConsoleColor.Red;
-                                Console.ForegroundColor = ConsoleColor.White;
-                                Console.WriteLine("Error: Didn't download page with the id " + page.pageid + ": " + e.Message + ". Continuing download of further pages.");
+                                Console.Write("\nError: Didn't download page with the id " + page.pageid + ": " + e.Message + ". Continuing download of further pages.\n");
                                 Console.ResetColor();
                             }
                         }
@@ -119,6 +113,7 @@
             Console.Write("\r" + parameterPairs[^1] + " - completed    ");
             Console.CursorLeft -= 4;
             Console.WriteLine("\nDownloaded all requested pages.");
+            Console.ReadLine();
         }
 
         static async Task<string> ReadWiki(string baseURL, string apiOptions)
