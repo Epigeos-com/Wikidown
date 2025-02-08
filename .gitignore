@@ -1,10 +1,1 @@
-\.github
-\.git
-
-source/\.vs
-source/bin
-source/obj
-source/properties
-source/Wikidown.csproj.user
-
-builds/output
+output
